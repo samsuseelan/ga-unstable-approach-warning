@@ -4,22 +4,25 @@ Early warning for unstable approaches in general aviation flight training, built
 
 ## What this project does
 
-- Loads one hour of OpenSky Network ADS-B data (27 June 2022, 15:00 to 16:00 UTC)
+- Loads six hours of OpenSky Network ADS-B data (27 June 2022, 13:00 to 19:00 UTC)
 - Keeps aircraft near Daytona Beach International Airport (KDAB) below 1,500 ft
 - Removes frozen ADS-B reports
 - Cuts each flight track into individual approaches
 - Flags approaches with high sink rate, based on Flight Safety Foundation stabilized approach criteria (1,000 fpm)
 - Adds aircraft type from the OpenSky aircraft database
 
-## First results
+## Results
 
-- 18 aircraft in the traffic pattern
-- 36 approaches from 13 aircraft
-- Peak rule (any single report over 1,000 fpm): 8 flags across 3 aircraft
-- Sustained rule (2 or more reports over 1,000 fpm, about 20 seconds): 4 flags, 3 of them on one Cessna 172S
-- The other five Cessna 172S aircraft in the same hour: 1 sustained flag in total
+- 71 aircraft in the traffic pattern
+- 149 approaches
+- Rule A, 2 or more reports over 1,000 fpm anywhere in the approach: 6 flags
+- Rule B, 2 or more back-to-back reports over 1,000 fpm, 10 seconds apart, above 100 ft: 1 flag
 
-The sustained rule cuts false alarms by half. Fewer false alarms means instructors trust the warnings.
+Rule B drops touchdown noise and brief spikes the pilot corrected. The one remaining flag shows a Cessna 172S at 625 ft, 109 knots ground speed, sinking over 1,000 fpm for 30 seconds.
+
+![Flagged vs clean approach](approach_compare.png)
+
+Same aircraft, same session. The flagged approach reached the runway in about 50 seconds, the clean approach in about 100 seconds. On a 3 degree glidepath, sink rate equals about 5 times ground speed, so the clean approach matches a normal glidepath and the flagged approach descended about three times faster.
 
 ## Known data limits
 
@@ -28,13 +31,15 @@ The sustained rule cuts false alarms by half. Fewer false alarms means instructo
 - Vertical rate comes in 64 fpm steps. Altitude comes in 25 ft steps.
 - Reports arrive about every 10 seconds.
 - OpenSky repeats the last known state for up to 300 seconds after coverage loss. This project removes those rows.
-- Results cover one hour at one airport. Not yet enough data for a trained model.
+- ADS-B identifies the aircraft, not the pilot. A school aircraft flies with several students a day.
+- The rules check sink rate only, not speed.
+- No expert labels yet, so the number of missed unstable approaches is unknown.
 
 ## Next steps
 
-- Limits by aircraft type
-- More hours and days of data
-- Train a model on approach features
+- Speed limits by aircraft type
+- Instructor review of approaches to create stable and unstable labels
+- More days of data, then a trained model tested against instructor labels
 
 ## Data source
 
