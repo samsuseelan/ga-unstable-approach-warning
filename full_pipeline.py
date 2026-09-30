@@ -3,7 +3,7 @@
 # Author: Sam Suseelan. Code written with AI coding assistance.
 #
 # What this script does:
-#   1. Downloads six hours of OpenSky ADS-B data near KDAB
+#   1. Loads hours of OpenSky ADS-B data near KDAB, from Google Drive or OpenSky
 #   2. Adds aircraft type from the OpenSky aircraft database
 #   3. Removes frozen reports and cuts each track into approaches
 #   4. Drops fragments and non-training aircraft
@@ -20,7 +20,8 @@ import matplotlib.pyplot as plt
 
 # ---------- Settings ----------
 DATE = "2022-06-27"
-HOURS = ["13", "14", "15", "16", "17", "18"]
+HOURS = ["14", "15", "16"]
+DRIVE_DIR = "/content/drive/MyDrive/opensky"   # folder in Google Drive with the .tar files
 LAT_MIN, LAT_MAX = 29.10, 29.26          # box around KDAB
 LON_MIN, LON_MAX = -81.15, -80.97
 MIN_START_FT = 500                        # drop fragments starting lower
@@ -31,15 +32,29 @@ COLS = ["time", "icao24", "lat", "lon", "velocity", "heading",
         "vertrate", "callsign", "onground", "baroaltitude", "geoaltitude"]
 
 
-# ---------- Step 1: download and keep rows near KDAB ----------
+# ---------- Step 1: load hours and keep rows near KDAB ----------
+def get_file(name, url):
+    """Use the copy in Google Drive if present, else download from OpenSky."""
+    drive_copy = os.path.join(DRIVE_DIR, name)
+    if os.path.exists(drive_copy):
+        print("  using Drive copy of", name)
+        return drive_copy
+    os.system(f"wget -q --timeout=60 --tries=3 {url}")
+    return name if os.path.exists(name) else None
+
+
 def load_hours():
     frames = []
     for h in HOURS:
         name = f"states_{DATE}-{h}.csv"
         url = f"https://s3.opensky-network.org/data-samples/states/{DATE}/{h}/{name}.tar"
-        os.system(f"wget -q {url} && tar -xf {name}.tar")
-        if not os.path.exists(name + ".gz"):
+        tar_path = get_file(name + ".tar", url)
+        if tar_path is None:
             print("Hour", h, "MISSING, skipped")
+            continue
+        os.system(f"tar -xf '{tar_path}'")
+        if not os.path.exists(name + ".gz"):
+            print("Hour", h, "could not unpack, skipped")
             continue
         for chunk in pd.read_csv(name + ".gz", usecols=COLS, chunksize=1_000_000):
             near = chunk[chunk["lat"].between(LAT_MIN, LAT_MAX) &
@@ -47,6 +62,8 @@ def load_hours():
             frames.append(near)
         os.system(f"rm -f {name}.tar {name}.gz")
         print("Hour", h, "done")
+    if not frames:
+        raise SystemExit("No hours loaded. OpenSky unreachable and no Drive copies found in " + DRIVE_DIR)
     day = pd.concat(frames).copy()
     day["alt_ft"] = day["baroaltitude"] * 3.281
     day["speed_kt"] = day["velocity"] * 1.944
@@ -57,9 +74,10 @@ def load_hours():
 # ---------- Step 2: aircraft type database ----------
 def load_aircraft():
     name = "aircraft-database-complete-2022-06.csv"
-    if not os.path.exists(name):
-        os.system(f"wget -q https://s3.opensky-network.org/data-samples/metadata/{name}")
-    db = pd.read_csv(name, header=None, skiprows=1, dtype=str,
+    path = get_file(name, f"https://s3.opensky-network.org/data-samples/metadata/{name}")
+    if path is None:
+        raise SystemExit("Aircraft database missing. Put " + name + " in " + DRIVE_DIR)
+    db = pd.read_csv(path, header=None, skiprows=1, dtype=str,
                      on_bad_lines="skip", encoding="latin-1")
     aircraft = db[[0, 4]].copy()
     aircraft.columns = ["icao24", "model"]
@@ -181,6 +199,12 @@ def score_labels(key, labels_file="labels.csv"):
 # ============================================================
 # Run everything
 # ============================================================
+try:
+    from google.colab import drive
+    drive.mount("/content/drive")
+except ImportError:
+    pass
+
 day = load_hours()
 aircraft = load_aircraft()
 appr, tracks = build_approaches(day, aircraft)
