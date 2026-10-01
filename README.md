@@ -66,4 +66,5 @@ Five of six Rule S flags come from aircraft flying a single approach, likely str
 
 OpenSky Network: https://opensky-network.org
 
-Code written with AI coding assistance. Design decisions, data validation and analysis by Sam Suseelan.
+Project development and research by Sam Suseelan
+
